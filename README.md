@@ -17,7 +17,7 @@ F server communication library
 
 ### [STMP协议](doc/STMP.md)
  
-* Simple Transaction Management Protocol, 它的灵魂是ITU-T Q.773, 这是一个古老而强大的协议.
+* Simple Transaction Management Protocol, 它的灵魂是ITU-T Q.773, 一个古老而强大的协议.
 
 ### 网元(network element)
 
@@ -175,18 +175,18 @@ sn->begin(req, [req](FooRsp* rsp)
 
 ```cpp
 StmpNet* sn = NULL;
-FooReq* req = new FooReq(); //protobuf message.
-sn->begin(req, [req](FooDialog* ask, StmpTransInitiative* trans)
+FooReq* askA = new FooReq(); //protobuf message.
+sn->begin(askA, [req](FooDialog* ansA, StmpTransInitiative* trans)
 {
     //下面的代码会反复执行, 取决于双方的对话次数.
-    if(ask->A)
+    if(ansA->A)
     {
-      FooDialog* ansA = FooDialog();
-      trans.dialog(ansA);
+      FooDialog* askB = FooDialog();
+      trans.dialog(askB);
     }else
     {
-      FooDialog* ansB = FooDialog();
-      trans.dialog(ansB);
+      FooDialog* askC = FooDialog();
+      trans.dialog(askC);
     }
 }, 
 []
