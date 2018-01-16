@@ -118,14 +118,15 @@ blk->future([blk, foo]
 
 ### request与response消息对
 
-* 不要去delete req.
+![消息流程](doc/img/stmp-begin-end.png)
 
+* 不要去delete req.
 ```cpp
 StmpNet* sn = NULL;
 FooReq* req = new FooReq(); //protobuf message.
 sn->begin(req, [req](ushort ret, BarRsp* rsp)
 {
-  printf("got a response from bar");
+  printf("got a response from bar\n");
 }, 
 []
 {
@@ -133,20 +134,25 @@ sn->begin(req, [req](ushort ret, BarRsp* rsp)
 });
 ```
 
+
 ### subscribe与publish
+
+![消息流程](doc/img/stmp-subscribe-publish.png)
 
 ```cpp
 StmpNet* sn = NULL;
 FooSubscribe* sub = new FooSubscribe(); //protobuf message.
 sn->subscribe(sub, [sub](BarPublish* pub)
 {
-  printf("got a publish message from remote");   //在这里会持续收到publish.
+  printf("got a publish message from remote\n");   //在这里会持续收到publish.
 }, 
 []
 {
    printf("timeout or failed\n");   //订阅失败, 或者网络连接断开时会被调用.
 });
 ```
+
+
 
 ### continue
 
@@ -156,12 +162,16 @@ sn->subscribe(sub, [sub](BarPublish* pub)
 
 * 这个事务id范围是0 ~ 0xFFFFFFFF, 在一个百万条消息每秒的连接上, 数天就会回到起点, 进而产生冲突, 不理解这一点可以参考[STMP协议](doc/STMP.md)
 
+* 通信的双方都可以调用END来结束事务.
+
+![消息流程](doc/img/stmp-continue.png)
+
 ```cpp
 StmpNet* sn = NULL;
 FooReq* req = new FooReq(); //protobuf message.
 sn->begin(req, [req](FooRsp* rsp)
 {
-  printf("got a response from remote");   //在这里会持续(但不会/不应该太多)收到rsp.
+  printf("got a response from remote\n");   //在这里会持续(但不会/不应该太多)收到rsp.
 }, 
 []
 {
@@ -172,6 +182,8 @@ sn->begin(req, [req](FooRsp* rsp)
 ### dialog
 
 * dialog指的是通信双方在一个事务上的多次对话.
+
+![消息流程](doc/img/stmp-dialog.png)
 
 ```cpp
 StmpNet* sn = NULL;
@@ -199,6 +211,8 @@ sn->begin(askA, [req](FooDialog* ansA, StmpTransInitiative* trans)
 
 * 单向消息, 通常用于发出后, 不关心对方是否能收到.
 
+![消息流程](doc/img/stmp-uni.png)
+
 ```cpp
 StmpNet* sn = NULL;
 FooUni* uni = new FooReq(); //protobuf message.
@@ -213,9 +227,13 @@ sn->uni(req); //不要自己delete req.
 
 * 由多个业务模块与一个SSC组成的小型星形网络: 任意业务模块连接到SSC后, 可以调用其它模块的service.
 
+![消息流程](doc/img/stmp-ssc0.png)
+
 ### 多级SSC路由
 
 * 由多个SSC组成的多层级星形网络, 通常是跨系统调用.
+
+![消息流程](doc/img/stmp-ssc1.png)
 
 
 -----
