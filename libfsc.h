@@ -14,6 +14,10 @@
 #error only libfsc.h can be included directly.
 #endif
 
-#include "Fsc.h"
+#include "core/Fsc.h"
+#include "stmp/StmpFusr.h"
+#include "stmp/StmpNet.h"
+#include "stmp/StmpN2H.h"
+#include "stmp/StmpTransPassive.h"
 
 #endif /* LIBFSC_H_ */
