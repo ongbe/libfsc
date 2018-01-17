@@ -24,7 +24,7 @@ public:
 	pthread_mutex_t mutex;
 	queue<actor_future*> afs;
 	unordered_map<int /* socket-fd. */, ActorNet*> ans;
-	unordered_map<string /* message-name. */, unordered_set<StmpNet*>*> subcribes;
+	unordered_map<string /* message-name. */, unordered_map<StmpNet* /* 订阅者. */, uint /* session id. */>*> subcribes;
 	list<StmpH2N*> h2ns;
 public:
 	void push(actor_future* f); /* lambda排队. */

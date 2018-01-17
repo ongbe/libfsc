@@ -15,11 +15,11 @@ class StmpFusr;
 class StmpN2H: public StmpNet
 {
 public:
-	string ne; /** 网元标识. */
+	string ne; /* 网元标识. */
 	StmpFusr* fusr; /* 连接上的用户数据. */
 public:
-	void evnDis(); /** 连接断开事件. */
-	bool evnMsg(stmp_node* root); /** 连接上的消息事件. */
+	void evnDis(); /* 连接断开事件. */
+	bool evnMsg(stmp_node* root); /* 连接上的消息事件. */
 	bool evnBegin(stmp_node* root);
 	bool evnEnd(stmp_node* root);
 	bool evnContinue(stmp_node* root);

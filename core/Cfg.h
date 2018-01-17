@@ -16,7 +16,7 @@ class Cfg
 public:
 	static string libfsc_server_addr;
 	static int libfsc_worker;
-	static int libfsc_protocol;
+	static FscProtocolType libfsc_protocol;
 	static int libfsc_peer_limit;
 	static int libfsc_peer_mtu;
 	static int libfsc_peer_rcvbuf;
@@ -25,6 +25,7 @@ public:
 	static ullong libfsc_n2h_zombie;
 	static ullong libfsc_h2n_reconn;
 	static bool libfsc_ssc_enable;
+	static string libfsc_log_level;
 public:
 	static void init();
 public:

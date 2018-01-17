@@ -32,6 +32,7 @@
 #define STMP_SERVICE_NOUSR(__BEGIN__, __UNI__, __CB__)  						    (Fsc::regService(__BEGIN__::descriptor(), __UNI__::descriptor(), (void*)(__CB__), false, NULL));
 #define STMP_SERVICE_ONUSR(__BEGIN__, __UNI__, __CB__)  						    (Fsc::regService(__BEGIN__::descriptor(), __UNI__::descriptor(), (void*)(__CB__),  true, NULL));
 
+#define LIBFSC_PROTOCOL																"LIBFSC_PROTOCOL"			/* libfsc支持的协议. */
 #define LIBFSC_SERVER_ADDR															"LIBFSC_SERVER_ADDR" 		/* 服务地址. */
 #define LIBFSC_WORKER																"LIBFSC_WORKER" 			/* 消息总线线程数. */
 #define LIBFSC_PEER_LIMIT															"LIBFSC_PEER_LIMIT" 		/* 允许的最大连接数. */
@@ -43,6 +44,7 @@
 #define LIBFSC_H2N_RECONN															"LIBFSC_H2N_RECONN" 		/* H2N重连等待(秒). */
 #define LIBFSC_H2N_TRANS_TIMEOUT													"LIBFSC_H2N_TRANS_TIMEOUT"	/* H2N网络事务超时时间(秒), 即发送请求后等待响应的时间. */
 #define LIBFSC_SSC_ENABLE															"LIBFSC_SSC_ENABLE"			/* 使能SSC. */
+#define LIBFSC_LOG_LEVEL															"LIBFSC_LOG_LEVEL"			/* libfsc的日志级别. */
 
 enum FscProtocolType
 {
@@ -69,7 +71,6 @@ public:
 	static Fworker* getFwk();
 	static int getWk();
 	static int hashWk(ullong id);
-	static void publishMsg(string* subsribe, Message* publish); /* 消息发布. */
 	static bool regIRPC(const Descriptor* begin, const Descriptor* end, bool fusr); /* N2H上的网络消息(基于STMP-PROTOBUF的RPC)注册, 用于N2H主动发起的事务. */
 	static bool regPRPC(const Descriptor* begin, const Descriptor* end, void* cb, bool fusr, const char* doc); /* N2H上的网络消息(基于STMP-PROTOBUF的RPC)注册, 用于N2H被动接收的事务. */
 	static bool regPRPC(const Descriptor* uni, void* cb, bool fusr, const char* doc); /* N2H上的网络消息(基于STMP-PROTOBUF的RPC)注册, 用于N2H被动接收的事务(UNI). */

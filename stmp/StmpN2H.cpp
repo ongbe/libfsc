@@ -24,7 +24,7 @@ StmpN2H::StmpN2H(int cfd, int wk, struct sockaddr_in* peer) :
 	this->fusr = NULL;
 }
 
-/** 连接断开事件. */
+/* 连接断开事件. */
 void StmpN2H::evnDis()
 {
 	this->est = false;
@@ -39,7 +39,7 @@ void StmpN2H::evnDis()
 	this->del();
 }
 
-/** 连接上的消息事件. */
+/* 连接上的消息事件. */
 bool StmpN2H::evnMsg(stmp_node* root)
 {
 	switch (root->self.t)
@@ -98,6 +98,30 @@ bool StmpN2H::evnBegin(stmp_node* root)
 	StmpCb* cb;
 	if (!this->decodeBegin(root, &stid, &begin, &cb))
 		return false;
+	/** -------------------------------- */
+	/**                                  */
+	/** 服务订阅. */
+	/**                                  */
+	/** -------------------------------- */
+	if (cb->type == RpcType::RPC_TYPE_SERVICE)
+	{
+		uint sid;
+		if (stmpdec_get_int(root, STMP_TAG_SID, &sid) != 0) /* subscribe上的sid. */
+		{
+			LOG_DEBUG("missing required field: STMP_TAG_SID, this: %s", this->toString().c_str())
+			return false;
+		}
+		StmpTransPassive* trans = new StmpTransPassive(this, begin, stid);
+		trans->sid = (uint*) malloc(sizeof(uint));
+		*(trans->sid) = sid;
+		((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, trans);
+		return true;
+	}
+	/** -------------------------------- */
+	/**                                  */
+	/** 一般BEGIN. */
+	/**                                  */
+	/** -------------------------------- */
 	((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, new StmpTransPassive(this, begin, stid));
 	return true;
 }

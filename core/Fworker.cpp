@@ -37,8 +37,10 @@ void Fworker::push(actor_future* f)
 /* 线程入口. */
 void Fworker::loop()
 {
+	pthread_setspecific(Fsc::pkey, this);
 	int size = Cfg::libfsc_peer_limit / Cfg::libfsc_worker;
 	struct epoll_event* evns = (struct epoll_event*) calloc(1, sizeof(struct epoll_event) * size);
+	this->addCfd4Read(this->evn);
 	LOG_INFO("worker-thread start successfully, index: %02X, epoll-fd: %08X", this->wk, this->efd)
 	int i = 0;
 	int count = 0;
@@ -70,6 +72,7 @@ void Fworker::loop()
 	}
 }
 
+/* 连接到来事件. */
 void Fworker::evnConn()
 {
 	struct sockaddr_in peer;

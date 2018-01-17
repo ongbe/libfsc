@@ -18,10 +18,11 @@
 class StmpTrans
 {
 public:
-	StmpNet* stmpNet; /** STMP连接. */
+	StmpNet* stmpNet; /* STMP连接. */
 	Message* beginMsg; /* BEGIN.*/
 	list<Message*>* continous; /* 可能的continue. */
 	Message* endMsg; /* END.*/
+	uint* sid; /* subscribe上的session id. */
 	uint dtid; /* DTID, 指的是由BEGIN带来的事务ID. */
 	ushort ret; /* 事务结束时的返回值. */
 public:

@@ -14,6 +14,7 @@ StmpTrans::StmpTrans(StmpNet* stmpNet, Message* begin, uint dtid)
 	this->continous = NULL;
 	this->endMsg = NULL;
 	this->dtid = dtid;
+	this->sid = NULL;
 	this->ret = 0;
 }
 
@@ -45,7 +46,7 @@ void StmpTrans::end(ushort ret, Message* end)
 	}
 	this->stmpNet->future([this]
 	{
-		this->stmpNet->sendEnd(this->dtid, this->ret, this->endMsg);
+		this->stmpNet->sendEnd(this->dtid, this->ret, this->endMsg, this->sid);
 		this->finish();
 	});
 }
@@ -80,5 +81,7 @@ StmpTrans::~StmpTrans()
 	delete this->beginMsg;
 	if (this->endMsg != NULL)
 		delete this->endMsg;
+	if (this->sid != NULL)
+		::free(this->sid);
 }
 

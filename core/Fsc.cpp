@@ -19,6 +19,7 @@ FscProtocolType Fsc::proto;
 bool Fsc::sscEnable;
 int Fsc::sfd;
 int Fsc::worker;
+int Fsc::peer_mtu;
 ullong Fsc::now;
 unordered_map<string, StmpCb*> Fsc::stmpN2HMsgs;
 
@@ -123,49 +124,6 @@ int Fsc::hashWk(ullong id)
 	return (int) ((id & 0x7FFFFFFFFFFFFFFFL) % Fsc::worker);
 }
 
-void Fsc::publishMsg(string* subsribe, Message* publish)
-{
-	string* str = new string(*subsribe);
-	int* counter = new int;
-	*counter = 0;
-	//
-	for (int i = 0; i < Fsc::worker; ++i)
-	{
-		Fworker* wk = (Fsc::wks + i);
-		wk->future([wk, str, publish, counter]
-		{
-			*counter = __sync_add_and_fetch(counter, 1);
-			list<StmpNet*> list;
-			auto it = wk->subcribes.find(*str);
-			if(it == wk->subcribes.end())
-			{
-				if(*counter == Fsc::worker)
-				{
-					delete str;
-					delete counter;
-					delete publish;
-				}
-				return;
-			}
-			for(auto iter = it->second->begin(); iter != it->second->end(); ++iter)
-			{
-				list.push_back(*iter);
-			}
-			for(auto iter = list.begin(); iter != list.end(); ++iter)
-			{
-				StmpNet* an = *iter;
-				an->sendUni(++an->tid, publish);
-			}
-			if(*counter == Fsc::worker)
-			{
-				delete str;
-				delete counter;
-				delete publish;
-			}
-		});
-	}
-}
-
 /* 注册STMP-N2H上的RPC. */
 bool Fsc::regStmpN2HMsg(const Descriptor* begin, const Descriptor* end, const Descriptor* uni, void* cb, RpcType type, bool fusr, const char* doc)
 {
@@ -174,7 +132,8 @@ bool Fsc::regStmpN2HMsg(const Descriptor* begin, const Descriptor* end, const De
 		LOG_ERROR("duplicate STMP-N2H MSG, begin: %s, end: %s", begin->name().c_str(), end->name().c_str())
 		return false;
 	}
-	LOG_DEBUG("register STMP-N2H MSG successfully, begin: %s, end: %s", begin->name().c_str(), end->name().c_str())
+	LOG_DEBUG("register STMP-N2H MSG successfully, begin: %s, end: %s, uni: %s", begin == NULL ? "NULL" : begin->name().c_str(), //
+			end == NULL ? "NULL": end->name().c_str(), uni == NULL ? "NULL": uni->name().c_str())
 	Fsc::stmpN2HMsgs[begin->name()] = new StmpCb(begin, end, uni, cb, type, fusr, doc);
 	return true;
 }

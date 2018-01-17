@@ -15,7 +15,8 @@ StmpCb::StmpCb(const Descriptor* begin, const Descriptor* end, const Descriptor*
 	this->cb = cb;
 	this->type = type;
 	this->fusr = fusr;
-	this->doc.assign(doc);
+	if (doc != NULL)
+		this->doc.assign(doc);
 }
 
 StmpCb::~StmpCb()
