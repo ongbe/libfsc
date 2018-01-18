@@ -114,7 +114,10 @@ bool StmpN2H::evnBegin(stmp_node* root)
 		StmpTransPassive* trans = new StmpTransPassive(this, begin, stid);
 		trans->sid = (uint*) malloc(sizeof(uint));
 		*(trans->sid) = sid;
-		((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, trans);
+		if (cb->fusr)
+			((void (*)(StmpFusr* ne, Message* begin, StmpTransPassive* trans)) (cb->cb))(this->fusr, begin, trans);
+		else
+			((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, trans);
 		return true;
 	}
 	/** -------------------------------- */
@@ -122,7 +125,10 @@ bool StmpN2H::evnBegin(stmp_node* root)
 	/** 一般BEGIN. */
 	/**                                  */
 	/** -------------------------------- */
-	((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, new StmpTransPassive(this, begin, stid));
+	if (cb->fusr)
+		((void (*)(StmpFusr* ne, Message* begin, StmpTransPassive* trans)) (cb->cb))(this->fusr, begin, new StmpTransPassive(this, begin, stid));
+	else
+		((void (*)(StmpN2H* n2h, Message* begin, StmpTransPassive* trans)) (cb->cb))(this, begin, new StmpTransPassive(this, begin, stid));
 	return true;
 }
 

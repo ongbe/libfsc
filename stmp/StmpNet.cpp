@@ -215,9 +215,49 @@ void StmpNet::sendEnd(uint dtid, ushort ret, Message* end, uint* sid /* 用于su
 }
 
 /* STMP-UNI. */
-void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Message* end)
+void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Message* uni)
 {
-
+	string pb = uni->SerializeAsString();
+	int seglen = Fsc::peer_mtu - STMP_PDU_RESERVED;
+	if ((int) pb.length() <= seglen)
+	{
+		stmp_pdu* pdu = StmpNet::encodeUni(sid, &pb);
+		uint len;
+		uchar* dat = stmpenc_take(pdu, &len);
+		this->send(dat, len);
+		free(pdu->buff);
+		free(pdu);
+		return;
+	}
+	//
+	int segs = pb.length() / seglen;
+	int remain = pb.length() % seglen;
+	//
+	stmp_pdu* pdu = StmpNet::encodeUniWithPart(stid, sid, (uchar*) pb.data(), 0, seglen);
+	uint len;
+	uchar* dat = stmpenc_take(pdu, &len);
+	this->send(dat, len);
+	free(pdu->buff);
+	free(pdu);
+	//
+	for (int i = 1; i < segs && this->est; ++i)
+	{
+		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, (uchar*) pb.data(), i * seglen, seglen, remain != 0 ? true : (i == segs - 1 ? false : true));
+		uint len;
+		uchar* dat = stmpenc_take(pdu, &len);
+		this->send(dat, len);
+		free(pdu->buff);
+		free(pdu);
+	}
+	if (remain > 0 && this->est)
+	{
+		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, (uchar*) pb.data(), segs * seglen, remain, false);
+		uint len;
+		uchar* dat = stmpenc_take(pdu, &len);
+		this->send(dat, len);
+		free(pdu->buff);
+		free(pdu);
+	}
 }
 
 /** ---------------------------------------------------------------- */
@@ -311,6 +351,40 @@ stmp_pdu* StmpNet::encodeEndWithPart(uint dtid, ushort ret, uint* sid /* 用于s
 	if (sid != NULL)
 		stmpenc_add_int(pdu, STMP_TAG_SID, *sid);
 	stmpenc_add_int(pdu, STMP_TAG_DTID, dtid);
+	stmpenc_add_tag(pdu, STMP_TAG_TRANS_END);
+	return pdu;
+}
+
+/*  encode-STMP-END. */
+stmp_pdu* StmpNet::encodeUni(uint* sid /* 用于subscribe/publish. */, string* pb)
+{
+	stmp_pdu* pdu = (stmp_pdu*) malloc(sizeof(stmp_pdu));
+	int size = pb->length() + STMP_PDU_RESERVED;
+	pdu->len = size;
+	pdu->rm = size;
+	pdu->p = 0;
+	pdu->buff = (uchar*) malloc(size);
+	stmpenc_add_bin(pdu, STMP_TAG_DAT, (uchar*) pb->data(), pb->length());
+	if (sid != NULL)
+		stmpenc_add_int(pdu, STMP_TAG_SID, *sid);
+	stmpenc_add_tag(pdu, STMP_TAG_TRANS_UNI);
+	return pdu;
+}
+
+/*  encode-STMP-END. */
+stmp_pdu* StmpNet::encodeUniWithPart(uint stid, uint* sid /* 用于subscribe/publish. */, uchar* dat, int ofst, int len)
+{
+	stmp_pdu* pdu = (stmp_pdu*) malloc(sizeof(stmp_pdu));
+	int size = len + STMP_PDU_RESERVED;
+	pdu->len = size;
+	pdu->rm = size;
+	pdu->p = 0;
+	pdu->buff = (uchar*) malloc(size);
+	stmpenc_add_bin(pdu, STMP_TAG_DAT, dat + ofst, len);
+	stmpenc_add_char(pdu, STMP_TAG_HAVE_NEXT_PART, RET_PRESENT);
+	if (sid != NULL)
+		stmpenc_add_int(pdu, STMP_TAG_SID, *sid);
+	stmpenc_add_int(pdu, STMP_TAG_STID, stid);
 	stmpenc_add_tag(pdu, STMP_TAG_TRANS_END);
 	return pdu;
 }
@@ -444,50 +518,108 @@ bool StmpNet::switchBegin(stmp_node* root, string* dne)
 	return true;
 }
 
-/* 发布订阅服务上的消息. */
-void StmpNet::publishMsg(string* subsribe, Message* publish)
+/** ---------------------------------------------------------------- */
+/**                                                                  */
+/** SUBSCRIBE/PUBLISH. */
+/**                                                                  */
+/** ---------------------------------------------------------------- */
+
+/* 将自己添加到消息订阅服务. */
+void StmpNet::subscribe(const string* subsribe, uint sid)
 {
-	string* str = new string(Misc::gen0aAkey128());
+	Fworker* wk = Fsc::getFwk();
+	auto it = wk->subscribers.find(*subsribe);
+	if (it == wk->subscribers.end())
+	{
+		list<pair<StmpNet* /* 订阅者. */, uint /* session id. */>>* li = new list<pair<StmpNet*, uint>>();
+		li->push_back(make_pair(this, sid));
+		wk->subscribers[*subsribe] = li;
+		return;
+	}
+	it->second->push_back(make_pair(this, sid));
+}
+
+/* 将自己从消息订阅服务上卸下. */
+void StmpNet::unSubscribe()
+{
+	Fworker* wk = Fsc::getFwk();
+	for (auto it = wk->subscribers.begin(); it != wk->subscribers.end(); ++it) /* 迭代所有的path. */
+	{
+		list<pair<StmpNet* /* 订阅者. */, uint /* session id. */>>* li = it->second;
+		if (li->empty())
+			continue;
+		for (auto iter = li->begin(); iter != li->end();)
+		{
+			if (iter->first == this)
+				li->erase(iter++);
+			else
+				++iter;
+		}
+	}
+}
+
+/* 发布订阅服务上的消息. */
+void StmpNet::publishMsg(const string* root, const string* path, Message* publish)
+{
+	string* subroot = new string(*root);
+	string* subpath = new string(*path);
 	int* counter = new int;
 	*counter = 0;
 	//
 	for (int i = 0; i < Fsc::worker; ++i)
 	{
-		Fworker* wk = (Fsc::wks + i);
-		wk->future([wk, str, publish, counter]
+		Fworker* wk = Fsc::wks + i;
+		wk->future([wk, subroot, subpath, publish, counter]
 		{
-			unordered_map<StmpNet*, uint> map;
-			auto it = wk->subcribes.find(*str);
-			if(it == wk->subcribes.end())
+			auto it0 = wk->subscribers.find(*subroot);
+			auto it1 = wk->subscribers.find(*subpath);
+			if(it0 == wk->subscribers.end() && it1 == wk->subscribers.end()) /* 服务上没有订阅者. */
 			{
 				if((__sync_add_and_fetch(counter, 1)) == Fsc::worker) /* 所有Fworker都已轮询完. */
 				{
-					delete str;
+					delete subroot;
+					delete subpath;
 					delete counter;
 					delete publish;
 				}
 				return;
 			}
-			for(auto iter = it->second->begin(); iter != it->second->end(); ++iter)
+			list<pair<StmpNet* /* 订阅者. */, uint /* session id. */>> li;
+			if(it0!= wk->subscribers.end())
 			{
-				map.insert(make_pair(iter->first, iter->second));
+				for(auto iter = it0->second->begin(); iter != it0->second->end(); ++iter) /* 避免在发送时引起的连接断开事件影响it->second. */
+				{
+					iter->first->ref(); /* 问题在于, StmpNet可能会在li中出现多次, 如果其中一次消息发送引起其被删除, 后面的都将不可用. */
+					li.push_back(make_pair(iter->first, iter->second));
+				}
 			}
-			for(auto iter = map.begin(); iter != map.end(); ++iter)
+			if(it1!= wk->subscribers.end())
+			{
+				for(auto iter = it1->second->begin(); iter != it1->second->end(); ++iter)
+				{
+					iter->first->ref();
+					li.push_back(make_pair(iter->first, iter->second));
+				}
+			}
+			for(auto iter = li.begin(); iter != li.end(); ++iter)
 			{
 				StmpNet* an = iter->first;
-				an->sendUni(++an->tid, &iter->second, publish);
+				an->sendUni(++(an->tid), &(iter->second), publish);
+				an->unRef();
 			}
 			if((__sync_add_and_fetch(counter, 1)) == Fsc::worker) /* 所有Fworker都已轮询完. */
 			{
-				delete str;
+				delete subroot;
+				delete subpath;
 				delete counter;
 				delete publish;
 			}
 		});
 	}
 }
+
 StmpNet::~StmpNet()
 {
-	// TODO Auto-generated destructor stub
+
 }
 

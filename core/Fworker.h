@@ -17,15 +17,15 @@ class StmpH2N;
 class Fworker: public Actor
 {
 public:
-	volatile bool busy;
-	int efd;
-	int evn;
-	pthread_t t;
-	pthread_mutex_t mutex;
-	queue<actor_future*> afs;
-	unordered_map<int /* socket-fd. */, ActorNet*> ans;
-	unordered_map<string /* message-name. */, unordered_map<StmpNet* /* 订阅者. */, uint /* session id. */>*> subcribes;
-	list<StmpH2N*> h2ns;
+	volatile bool busy; /* 线程忙 ? true : false.*/
+	int efd; /* epoll句柄. */
+	int evn; /* eventfd句柄. */
+	pthread_t t; /* 线程标识. */
+	pthread_mutex_t mutex; /* 线程上的锁. */
+	queue<actor_future*> afs; /* 待处理的lambda. */
+	unordered_map<int /* socket-fd. */, ActorNet*> ans; /* 工作线程上的网络连接. */
+	unordered_map<string /* message-name/path/path/path/. */, list<pair<StmpNet* /* 订阅者. */, uint /* session id. */>>*> subscribers; /* 被订阅的服务. */
+	list<StmpH2N*> h2ns; /* 线程上的STMP-H2N连接. */
 public:
 	void push(actor_future* f); /* lambda排队. */
 	string toString();
