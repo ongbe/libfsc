@@ -217,11 +217,14 @@ void StmpNet::sendEnd(uint dtid, ushort ret, Message* end, uint* sid /* 用于su
 /* STMP-UNI. */
 void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Message* uni)
 {
-	string pb = uni->SerializeAsString();
+	int pbsize = (int) uni->ByteSizeLong();
+	uchar* pb = (uchar*) malloc(pbsize);
+	uni->SerializeToArray(pb, pbsize);
+	//
 	int seglen = Fsc::peer_mtu - STMP_PDU_RESERVED;
-	if ((int) pb.length() <= seglen)
+	if (pbsize <= seglen)
 	{
-		stmp_pdu* pdu = StmpNet::encodeUni(sid, &pb);
+		stmp_pdu* pdu = StmpNet::encodeUni(sid, pb, pbsize);
 		uint len;
 		uchar* dat = stmpenc_take(pdu, &len);
 		this->send(dat, len);
@@ -230,10 +233,10 @@ void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Messa
 		return;
 	}
 	//
-	int segs = pb.length() / seglen;
-	int remain = pb.length() % seglen;
+	int segs = pbsize / seglen;
+	int remain = pbsize % seglen;
 	//
-	stmp_pdu* pdu = StmpNet::encodeUniWithPart(stid, sid, (uchar*) pb.data(), 0, seglen);
+	stmp_pdu* pdu = StmpNet::encodeUniWithPart(stid, sid, pb, 0, seglen);
 	uint len;
 	uchar* dat = stmpenc_take(pdu, &len);
 	this->send(dat, len);
@@ -242,7 +245,7 @@ void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Messa
 	//
 	for (int i = 1; i < segs && this->est; ++i)
 	{
-		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, (uchar*) pb.data(), i * seglen, seglen, remain != 0 ? true : (i == segs - 1 ? false : true));
+		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, pb, i * seglen, seglen, remain != 0 ? true : (i == segs - 1 ? false : true));
 		uint len;
 		uchar* dat = stmpenc_take(pdu, &len);
 		this->send(dat, len);
@@ -251,7 +254,7 @@ void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Messa
 	}
 	if (remain > 0 && this->est)
 	{
-		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, (uchar*) pb.data(), segs * seglen, remain, false);
+		stmp_pdu* pdu = StmpNet::encodePart(STMP_TAG_STID, stid, pb, segs * seglen, remain, false);
 		uint len;
 		uchar* dat = stmpenc_take(pdu, &len);
 		this->send(dat, len);
@@ -356,17 +359,19 @@ stmp_pdu* StmpNet::encodeEndWithPart(uint dtid, ushort ret, uint* sid /* 用于s
 }
 
 /*  encode-STMP-END. */
-stmp_pdu* StmpNet::encodeUni(uint* sid /* 用于subscribe/publish. */, string* pb)
+stmp_pdu* StmpNet::encodeUni(uint* sid /* 用于subscribe/publish. */, uchar* pb, int pbsize)
 {
 	stmp_pdu* pdu = (stmp_pdu*) malloc(sizeof(stmp_pdu));
-	int size = pb->length() + STMP_PDU_RESERVED;
+	int size = pbsize + STMP_PDU_RESERVED + 128;
 	pdu->len = size;
 	pdu->rm = size;
 	pdu->p = 0;
 	pdu->buff = (uchar*) malloc(size);
-	stmpenc_add_bin(pdu, STMP_TAG_DAT, (uchar*) pb->data(), pb->length());
+	stmpenc_add_bin(pdu, STMP_TAG_DAT, pb, pbsize);
 	if (sid != NULL)
 		stmpenc_add_int(pdu, STMP_TAG_SID, *sid);
+	string uuid = Misc::gen0aAkey256();
+	stmpenc_add_bin(pdu, STMP_TAG_DNE, (uchar*) uuid.data(), (int) uuid.length());
 	stmpenc_add_tag(pdu, STMP_TAG_TRANS_UNI);
 	return pdu;
 }

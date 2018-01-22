@@ -118,7 +118,7 @@ void Fworker::evnSend(struct epoll_event* evn)
 	}
 	ActorNet* an = it->second;
 	an->ref(); /* 如果消息处理失败, an可能已经被删除, 为防止这种情况, 这里引用一次, 并在下面释放. */
-	an->evnWrite(this);
+	an->evnWrite();
 	an->unRef();
 }
 
@@ -268,17 +268,15 @@ void Fworker::addCfd4Write(int cfd)
 {
 	struct epoll_event ce = { 0 };
 	ce.data.fd = cfd;
-	ce.events = EPOLLOUT | EPOLLERR | EPOLLRDHUP | EPOLLET;
-	if (epoll_ctl(this->efd, EPOLL_CTL_ADD, cfd, &ce) == -1)
-		LOG_FAULT("add FD to epoll failed, cfd: %d, errno: %d", cfd, errno)
+	ce.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLRDHUP | EPOLLET;
+	if (epoll_ctl(this->efd, EPOLL_CTL_MOD, cfd, &ce) == -1)
+		LOG_FAULT("mod FD to epoll failed, cfd: %d, errno: %d", cfd, errno)
 }
 
+/* 删除描述字. */
 void Fworker::delCfd(int cfd)
 {
-	struct epoll_event ce = { 0 };
-	ce.data.fd = cfd;
-	ce.events = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
-	if (epoll_ctl(this->efd, EPOLL_CTL_DEL, cfd, &ce) == -1)
+	if (epoll_ctl(this->efd, EPOLL_CTL_DEL, cfd, NULL) == -1)
 		LOG_FAULT("remove FD from epoll failed, cfd: %d, errno: %d", cfd, errno)
 }
 

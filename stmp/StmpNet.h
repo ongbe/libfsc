@@ -30,7 +30,7 @@ public:
 	static stmp_pdu* encodeContinueWithPart(uint dtid, uchar* dat, int ofst, int len); /* encode-STMP-CONTINUE witch PART. */
 	static stmp_pdu* encodeEnd(uint dtid, ushort ret, string* end, uint* sid /* 用于subscribe/publish. */); /*  encode-STMP-END. */
 	static stmp_pdu* encodeEndWithPart(uint dtid, ushort ret, uint* sid /* 用于subscribe/publish. */, uchar* dat, int ofst, int len); /*  encode-STMP-END. */
-	static stmp_pdu* encodeUni(uint* sid /* 用于subscribe/publish. */, string* pb); /*  encode-STMP-END. */
+	static stmp_pdu* encodeUni(uint* sid /* 用于subscribe/publish. */, uchar* pb, int pbsize); /*  encode-STMP-END. */
 	static stmp_pdu* encodeUniWithPart(uint stid, uint* sid /* 用于subscribe/publish. */, uchar* dat, int ofst, int len); /*  encode-STMP-END. */
 	static stmp_pdu* encodePart(uchar tidTag, uint tid, uchar* dat, int ofst, int len, bool haveNext); /** encode-STMP-PART. */
 	bool decodeBegin(stmp_node* root, uint* tid, Message** begin, StmpCb** cb); /* decode-STMP-BEGIN. */

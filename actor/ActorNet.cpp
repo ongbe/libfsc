@@ -14,7 +14,7 @@ ActorNet::ActorNet(ActorType type, int wk) :
 		Actor(type, wk)
 {
 	this->est = false;
-	this->needBlock = false;
+	this->needBlock = 0;
 	this->tid = 0;
 	this->cfd = 0;
 	this->dlen = 0;
@@ -24,7 +24,7 @@ ActorNet::ActorNet(ActorType type, int wk) :
 	this->lts = 0ULL;
 }
 
-/** 消息出栈. */
+/* 消息出栈. */
 void ActorNet::send(uchar* dat, int len)
 {
 	FscStat::incv(FscStatItem::LIBFSC_SND_BYTES, len);
@@ -50,28 +50,48 @@ void ActorNet::send(uchar* dat, int len)
 	this->sendBuf(dat, len); /* 应用层处理发送缓冲区. */
 }
 
+/* 消息出栈. */
 void ActorNet::sendBuf(uchar* dat, int len)
 {
 	/** -------------------------------- */
 	/**                                  */
-	/** 不需阻塞. */
+	/** 需阻塞. */
 	/**                                  */
 	/** -------------------------------- */
-	if (!this->needBlock)
+	if (this->needBlock == 2)
+	{
+		an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
+		wbuf->len = len;
+		wbuf->pos = 0;
+		wbuf->dat = (uchar*) ::malloc(wbuf->len);
+		::memcpy(wbuf->dat, dat, wbuf->len);
+		this->wbuf->push_back(wbuf);
+		return;
+	}
+	/** -------------------------------- */
+	/**                                  */
+	/** 不需阻塞且缓冲区为空. */
+	/**                                  */
+	/** -------------------------------- */
+	if (this->wbuf->empty())
 	{
 		int w = ::send(this->cfd, dat, len, MSG_DONTWAIT);
 		if (w == len) /* 全部到达TCP缓冲区. */
 			return;
 		if (errno == EAGAIN || errno == EWOULDBLOCK) /* 需要阻塞. */
 		{
+			w = w < 0 ? 0 : w;
 			an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
 			wbuf->len = len - w;
 			wbuf->pos = 0;
 			wbuf->dat = (uchar*) ::malloc(wbuf->len);
 			::memcpy(wbuf->dat, dat + w, wbuf->len);
 			this->wbuf->push_back(wbuf);
-			this->needBlock = true;
-			Fsc::getFwk()->addCfd4Write(this->cfd);
+			if (this->needBlock == 0)
+			{
+				Fsc::getFwk()->addCfd4Write(this->cfd);
+				this->needBlock = 2;
+			}
 			return;
 		}
 		Fsc::getFwk()->removeActorNet(this);
@@ -80,7 +100,7 @@ void ActorNet::sendBuf(uchar* dat, int len)
 	}
 	/** -------------------------------- */
 	/**                                  */
-	/** 等待写事件. */
+	/** 不需阻塞但缓冲区不为空. */
 	/**                                  */
 	/** -------------------------------- */
 	an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
@@ -89,12 +109,12 @@ void ActorNet::sendBuf(uchar* dat, int len)
 	wbuf->dat = (uchar*) ::malloc(wbuf->len);
 	::memcpy(wbuf->dat, dat, wbuf->len);
 	this->wbuf->push_back(wbuf);
+	this->evnWrite();
 }
 
 /** 连接上的写事件. */
-void ActorNet::evnWrite(Fworker* fwk)
+void ActorNet::evnWrite()
 {
-	this->needBlock = false;
 	while (!this->wbuf->empty())
 	{
 		an_wbuf* wbuf = this->wbuf->front();
@@ -109,14 +129,16 @@ void ActorNet::evnWrite(Fworker* fwk)
 		}
 		if (errno == EAGAIN || errno == EWOULDBLOCK) /* 需阻塞. */
 		{
-			wbuf->pos += w;
-			this->needBlock = true;
+			if (w > 0)
+				wbuf->pos += w;
+			this->needBlock = 2;
 			return;
 		}
 		Fsc::getFwk()->removeActorNet(this); /* 连接已失去. */
 		this->evnDis();
 		return;
 	}
+	this->needBlock = 1;
 }
 
 /** 连接关闭. */
