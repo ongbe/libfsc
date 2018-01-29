@@ -7,18 +7,21 @@ CPP_SRCS += \
 ../actor/Actor.cpp \
 ../actor/ActorBlocking.cpp \
 ../actor/ActorNet.cpp \
+../actor/ActorSingleThread.cpp \
 ../actor/Fusr.cpp 
 
 OBJS += \
 ./actor/Actor.o \
 ./actor/ActorBlocking.o \
 ./actor/ActorNet.o \
+./actor/ActorSingleThread.o \
 ./actor/Fusr.o 
 
 CPP_DEPS += \
 ./actor/Actor.d \
 ./actor/ActorBlocking.d \
 ./actor/ActorNet.d \
+./actor/ActorSingleThread.d \
 ./actor/Fusr.d 
 
 

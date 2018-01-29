@@ -9,6 +9,7 @@ CPP_SRCS += \
 ../core/FscLog.cpp \
 ../core/FscMisc.cpp \
 ../core/FscStat.cpp \
+../core/FtimerMgr.cpp \
 ../core/Fworker.cpp 
 
 OBJS += \
@@ -17,6 +18,7 @@ OBJS += \
 ./core/FscLog.o \
 ./core/FscMisc.o \
 ./core/FscStat.o \
+./core/FtimerMgr.o \
 ./core/Fworker.o 
 
 CPP_DEPS += \
@@ -25,6 +27,7 @@ CPP_DEPS += \
 ./core/FscLog.d \
 ./core/FscMisc.d \
 ./core/FscStat.d \
+./core/FtimerMgr.d \
 ./core/Fworker.d 
 
 
