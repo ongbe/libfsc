@@ -22,6 +22,7 @@ class ActorNet: public Actor
 {
 public:
 	bool est; /* 连接是否已建立. */
+	bool wevn; /* 在连接上是否已关注过写事件. */
 	int tid; /* 连接上的事务id发生器. */
 	int cfd; /* 远端描述字. */
 	int dlen; /* rbuf的剩余长度. */

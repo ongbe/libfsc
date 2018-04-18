@@ -35,7 +35,7 @@ public:
 	void addActorNet(ActorNet* an); /* 添加ActorNet. */
 	void removeActorNet(ActorNet* an); /* 移除ActorNet. */
 	void addCfd4Read(int cfd); /* 注册读事件. */
-	void addCfd4ReadWrite(int cfd); /* 注册读写事件. */
+	void addCfd4Write(int cfd); /* 注册写事件. */
 	void delCfd(int cfd); /* 删除描述字. */
 public:
 	Fworker();

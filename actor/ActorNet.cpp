@@ -14,6 +14,7 @@ ActorNet::ActorNet(ActorType type, int wk) :
 		Actor(type, wk)
 {
 	this->est = false;
+	this->wevn = false;
 	this->tid = 0;
 	this->cfd = 0;
 	this->dlen = 0;
@@ -94,9 +95,14 @@ void ActorNet::sendBuf(uchar* dat, int len)
 		wbuf->dat = (uchar*) ::malloc(wbuf->len);
 		::memcpy(wbuf->dat, dat + w, wbuf->len);
 		this->wbuf->push_back(wbuf);
+		if (!this->wevn) /* 只添加一次. */
+		{
+			Fsc::getFwk()->addCfd4Write(this->cfd);
+			this->wevn = true;
+		}
 		return;
 	}
-	LOG_DEBUG("client socket exception, peer: %s, cfd: %d, errno: %d", this->peer.c_str(), this->cfd, errno)
+	LOG_DEBUG("client socket exception, peer: %s, cfd: %d, w: %d, errno: %d", this->peer.c_str(), this->cfd, w, errno)
 	Fsc::getFwk()->removeActorNet(this); /* 连接异常. */
 	this->evnDis();
 

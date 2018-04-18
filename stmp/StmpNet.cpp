@@ -85,7 +85,7 @@ bool StmpNet::evnRead()
 		stmp_node root;
 		if (stmpdec_unpack(dat, size, &root) != 0)
 		{
-			LOG_DEBUG("STMP protocol error.")
+			LOG_DEBUG("STMP protocol error, peer: %s", this->peer.c_str())
 			return false;
 		}
 		LOG_RECORD("\n  <-- PEER: %s CFD: %d\n%s%s", this->peer.c_str(), this->cfd, Misc::printhex2str(dat, size).c_str(), stmpdec_printnode2str(&root).c_str())
