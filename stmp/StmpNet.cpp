@@ -230,6 +230,7 @@ void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Messa
 		this->send(dat, len);
 		free(pdu->buff);
 		free(pdu);
+		free(pb);
 		return;
 	}
 	//
@@ -261,6 +262,7 @@ void StmpNet::sendUni(uint stid, uint* sid /* 用于subscribe/publish. */, Messa
 		free(pdu->buff);
 		free(pdu);
 	}
+	free(pb);
 }
 
 /** ---------------------------------------------------------------- */

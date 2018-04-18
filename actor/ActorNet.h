@@ -22,7 +22,6 @@ class ActorNet: public Actor
 {
 public:
 	bool est; /* 连接是否已建立. */
-	int needBlock; /* 写阻塞标志, 0: 不需阻塞且未关注写事件, 1: 不需阻塞, 但已关注写事件, 2: 需阻塞肯定已关注写事件. */
 	int tid; /* 连接上的事务id发生器. */
 	int cfd; /* 远端描述字. */
 	int dlen; /* rbuf的剩余长度. */

@@ -102,7 +102,7 @@ void Fworker::evnConn()
 			LOG_TRACE("got a connection from: %s, cfd: %d", n2h->peer.c_str(), cfd)
 			f->setFdAtt(cfd);
 			f->addActorNet(n2h);
-			f->addCfd4Read(cfd);
+			f->addCfd4ReadWrite(cfd);
 		});
 	}
 }
@@ -263,8 +263,8 @@ void Fworker::addCfd4Read(int cfd)
 		LOG_FAULT("add FD to epoll failed, cfd: %d, errno: %d", cfd, errno)
 }
 
-/* 注册写事件. */
-void Fworker::addCfd4Write(int cfd)
+/* 注册读写事件. */
+void Fworker::addCfd4ReadWrite(int cfd)
 {
 	struct epoll_event ce = { 0 };
 	ce.data.fd = cfd;

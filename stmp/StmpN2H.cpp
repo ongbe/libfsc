@@ -175,6 +175,7 @@ bool StmpN2H::evnPart(stmp_node* root)
 bool StmpN2H::evnPing(stmp_node* root)
 {
 	static uchar pong[] = { STMP_TAG_TRANS_PONG };
+	LOG_DEBUG("got a STMP_TAG_TRANS_PONG: %s, %llu", this->toString().c_str(), this->lts)
 	this->send(pong, 1);
 	return true;
 }

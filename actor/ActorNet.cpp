@@ -6,15 +6,14 @@
  */
 
 #include "ActorNet.h"
-#include "../core/Cfg.h"
 #include "../core/Fsc.h"
 #include "../core/FscStat.h"
+#include "Actor.h"
 
 ActorNet::ActorNet(ActorType type, int wk) :
 		Actor(type, wk)
 {
 	this->est = false;
-	this->needBlock = 0;
 	this->tid = 0;
 	this->cfd = 0;
 	this->dlen = 0;
@@ -30,24 +29,34 @@ void ActorNet::send(uchar* dat, int len)
 	FscStat::incv(FscStatItem::LIBFSC_SND_BYTES, len);
 	FscStat::inc(FscStatItem::LIBFSC_SND_MSGS);
 	LOG_RECORD("\n  --> PEER: %s CFD: %d\n%s%s", this->peer.c_str(), this->cfd, Misc::printhex2str(dat, len).c_str(), len == 1 ? "" : stmpdec_print2str(dat, len).c_str())
-	if (!this->est)
+	if (!this->est) /* 连接已失去. */
 		return;
-	if (this->wbuf == NULL) /* 简单粗暴型或客户端不可信赖型. */
+	/** -------------------------------- */
+	/**                                  */
+	/** 应用层处理发送缓冲区. */
+	/**                                  */
+	/** -------------------------------- */
+	if (this->wbuf != NULL)
 	{
-		if (::send(this->cfd, dat, len, MSG_DONTWAIT) == len) /* 全部到达TCP缓冲区. */
-			return;
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-		{
-			LOG_DEBUG("TCP buffer was full, can not send anymore, we will close this peer: %s, size: %08X", this->peer.c_str(), len)
-		} else
-		{
-			LOG_DEBUG("client socket exception, peer: %s, cfd: %d, size: %08X, errno: %d", this->peer.c_str(), this->cfd, len, errno)
-		}
-		Fsc::getFwk()->removeActorNet(this);
-		this->evnDis();
+		this->sendBuf(dat, len);
 		return;
 	}
-	this->sendBuf(dat, len); /* 应用层处理发送缓冲区. */
+	/** -------------------------------- */
+	/**                                  */
+	/** 简单粗暴型或客户端不可信赖型. */
+	/**                                  */
+	/** -------------------------------- */
+	if (::send(this->cfd, dat, len, MSG_DONTWAIT) == len) /* 全部到达TCP缓冲区. */
+		return;
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+	{
+		LOG_DEBUG("TCP buffer was full, can not send anymore, we will close this peer: %s, size: %08X", this->peer.c_str(), len)
+	} else
+	{
+		LOG_DEBUG("client socket exception, peer: %s, cfd: %d, size: %08X, errno: %d", this->peer.c_str(), this->cfd, len, errno)
+	}
+	Fsc::getFwk()->removeActorNet(this);
+	this->evnDis();
 }
 
 /* 消息出栈. */
@@ -58,7 +67,7 @@ void ActorNet::sendBuf(uchar* dat, int len)
 	/** 需阻塞. */
 	/**                                  */
 	/** -------------------------------- */
-	if (this->needBlock == 2)
+	if (!this->wbuf->empty()) /* 还有消息未出栈. */
 	{
 		an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
 		wbuf->len = len;
@@ -70,52 +79,33 @@ void ActorNet::sendBuf(uchar* dat, int len)
 	}
 	/** -------------------------------- */
 	/**                                  */
-	/** 不需阻塞且缓冲区为空. */
+	/** 缓冲区为空. */
 	/**                                  */
 	/** -------------------------------- */
-	if (this->wbuf->empty())
+	int w = ::send(this->cfd, dat, len, MSG_DONTWAIT);
+	if (w == len) /* 全部到达TCP缓冲区. */
+		return;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) /* 还有剩余, 需要阻塞. */
 	{
-		int w = ::send(this->cfd, dat, len, MSG_DONTWAIT);
-		if (w == len) /* 全部到达TCP缓冲区. */
-			return;
-		if (errno == EAGAIN || errno == EWOULDBLOCK) /* 需要阻塞. */
-		{
-			w = w < 0 ? 0 : w;
-			an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
-			wbuf->len = len - w;
-			wbuf->pos = 0;
-			wbuf->dat = (uchar*) ::malloc(wbuf->len);
-			::memcpy(wbuf->dat, dat + w, wbuf->len);
-			this->wbuf->push_back(wbuf);
-			if (this->needBlock == 0)
-			{
-				Fsc::getFwk()->addCfd4Write(this->cfd);
-				this->needBlock = 2;
-			}
-			return;
-		}
-		Fsc::getFwk()->removeActorNet(this);
-		this->evnDis();
+		w = w < 0 ? 0 : w;
+		an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
+		wbuf->len = len - w;
+		wbuf->pos = 0;
+		wbuf->dat = (uchar*) ::malloc(wbuf->len);
+		::memcpy(wbuf->dat, dat + w, wbuf->len);
+		this->wbuf->push_back(wbuf);
 		return;
 	}
-	/** -------------------------------- */
-	/**                                  */
-	/** 不需阻塞但缓冲区不为空. */
-	/**                                  */
-	/** -------------------------------- */
-	an_wbuf* wbuf = (an_wbuf*) ::malloc(sizeof(an_wbuf));
-	wbuf->len = len;
-	wbuf->pos = 0;
-	wbuf->dat = (uchar*) ::malloc(wbuf->len);
-	::memcpy(wbuf->dat, dat, wbuf->len);
-	this->wbuf->push_back(wbuf);
-	this->evnWrite();
+	LOG_DEBUG("client socket exception, peer: %s, cfd: %d, errno: %d", this->peer.c_str(), this->cfd, errno)
+	Fsc::getFwk()->removeActorNet(this); /* 连接异常. */
+	this->evnDis();
+
 }
 
 /** 连接上的写事件. */
 void ActorNet::evnWrite()
 {
-	while (!this->wbuf->empty())
+	while (this->wbuf && !this->wbuf->empty())
 	{
 		an_wbuf* wbuf = this->wbuf->front();
 		int r = wbuf->len - wbuf->pos;
@@ -131,14 +121,13 @@ void ActorNet::evnWrite()
 		{
 			if (w > 0)
 				wbuf->pos += w;
-			this->needBlock = 2;
 			return;
 		}
+		LOG_DEBUG("client socket exception, peer: %s, cfd: %d, errno: %d", this->peer.c_str(), this->cfd, errno)
 		Fsc::getFwk()->removeActorNet(this); /* 连接已失去. */
 		this->evnDis();
 		return;
 	}
-	this->needBlock = 1;
 }
 
 /** 连接关闭. */
