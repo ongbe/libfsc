@@ -20,15 +20,15 @@ Fworker::Fworker() :
 	this->efd = epoll_create(Cfg::libfsc_peer_limit / Fsc::worker);
 	this->evn = eventfd(0, EFD_NONBLOCK);
 	this->t = 0;
-	pthread_mutex_init(&this->mutex, NULL);
+	pthread_spin_init(&this->mutex, PTHREAD_PROCESS_PRIVATE);
 }
 
 /* lambda排队. */
 void Fworker::push(actor_future* f)
 {
-	pthread_mutex_lock(&this->mutex);
+	pthread_spin_lock(&this->mutex);
 	this->afs.push(f);
-	pthread_mutex_unlock(&this->mutex);
+	pthread_spin_unlock(&this->mutex);
 	//
 	static ullong count = 1;
 	::write(this->evn, &count, sizeof(ullong));
@@ -201,15 +201,15 @@ void Fworker::doFuture()
 	{
 		actor_future* f = NULL;
 		this->busy = false;
-		pthread_mutex_lock(&this->mutex);
+		pthread_spin_lock(&this->mutex);
 		if (this->afs.empty())
 		{
-			pthread_mutex_unlock(&this->mutex);
+			pthread_spin_unlock(&this->mutex);
 			return;
 		}
 		f = this->afs.front();
 		this->afs.pop();
-		pthread_mutex_unlock(&this->mutex);
+		pthread_spin_unlock(&this->mutex);
 		this->busy = true;
 		f->cb();
 		delete f;

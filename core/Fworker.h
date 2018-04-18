@@ -21,7 +21,7 @@ public:
 	int efd; /* epoll句柄. */
 	int evn; /* eventfd句柄. */
 	pthread_t t; /* 线程标识. */
-	pthread_mutex_t mutex; /* 线程上的锁. */
+	pthread_spinlock_t mutex; /* 线程上的锁. */
 	queue<actor_future*> afs; /* 待处理的lambda. */
 	unordered_map<int /* socket-fd. */, ActorNet*> ans; /* 工作线程上的网络连接. */
 	unordered_map<string /* message-name/path/path/path/. */, list<pair<StmpNet* /* 订阅者. */, uint /* session id. */>>*> subscribers; /* 被订阅的服务. */
